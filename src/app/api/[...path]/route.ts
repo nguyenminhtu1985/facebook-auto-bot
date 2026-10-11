@@ -41,6 +41,15 @@ import {
 } from "@/lib/facebook/oauth";
 import { getFacebookCredentials, isFacebookConfigured } from "@/lib/facebook/credentials";
 import { fetchLinkedAccount, remainingQuota } from "@/lib/instagram/client";
+import {
+  findProvider,
+  ProvidersTableMissingError,
+  recordTest,
+  resolveProviders,
+  saveProvider,
+} from "@/lib/db/providers";
+import { testProvider } from "@/lib/ai/providers";
+import type { ProviderId } from "@/lib/ai/catalogue";
 import { OAUTH_STATE_COOKIE } from "@/lib/facebook/oauth-state";
 import { publishPostNow } from "@/lib/publish";
 import { maybeRunAutopilot } from "@/lib/autopilot";
@@ -168,6 +177,40 @@ export async function GET(req: Request, ctx: Ctx) {
 
     if (route === "facebook/pages") {
       return getPages(url.searchParams.get("refresh") === "1");
+    }
+
+    if (route === "providers") {
+      try {
+        const providers = await resolveProviders();
+        // The key itself never leaves the server; the screen only needs to
+        // know whether one is stored and where it came from.
+        return json({
+          ready: true,
+          providers: providers.map((p) => ({
+            id: p.spec.id,
+            label: p.spec.label,
+            kind: p.spec.kind,
+            cost: p.spec.cost,
+            keyless: Boolean(p.spec.keyless),
+            keyUrl: p.spec.keyUrl ?? null,
+            blurb: p.spec.blurb,
+            defaultModel: p.spec.defaultModel ?? null,
+            hasKey: Boolean(p.apiKey),
+            keyFromEnv: p.keyFromEnv,
+            model: p.model,
+            enabled: p.enabled,
+            priority: p.priority,
+            lastTestedAt: p.lastTestedAt,
+            lastStatus: p.lastStatus,
+            lastError: p.lastError,
+          })),
+        });
+      } catch (err) {
+        if (err instanceof ProvidersTableMissingError) {
+          return json({ ready: false, providers: [], message: err.message });
+        }
+        throw err;
+      }
     }
 
     if (route === "topics") {
@@ -344,6 +387,20 @@ export async function POST(req: Request, ctx: Ctx) {
       }
     }
 
+    // providers/<id>/test
+    if (path.length === 3 && path[0] === "providers" && path[2] === "test") {
+      const provider = await findProvider(path[1]);
+      if (!provider) return json({ error: "Unknown provider." }, 404);
+
+      const result = await testProvider(provider);
+      try {
+        await recordTest(provider.spec.id, result.ok ? "ok" : "failed", result.ok ? null : result.detail);
+      } catch (err) {
+        if (!(err instanceof ProvidersTableMissingError)) throw err;
+      }
+      return json(result);
+    }
+
     // posts/<id>/post-now
     if (path.length === 3 && path[0] === "posts" && path[2] === "post-now") {
       try {
@@ -464,6 +521,13 @@ const SettingsBody = z.object({
   post_to_instagram: z.boolean().optional(),
 });
 
+const UpdateProviderBody = z.object({
+  apiKey: z.string().max(400).optional(),
+  model: z.string().max(120).optional(),
+  enabled: z.boolean().optional(),
+  priority: z.number().int().min(0).max(999).optional(),
+});
+
 const UpdateTopicBody = z.object({
   enabled: z.boolean().optional(),
   text: z.string().trim().min(1).max(MAX_TOPIC_LENGTH).optional(),
@@ -502,6 +566,29 @@ export async function PATCH(req: Request, ctx: Ctx) {
         }
         throw err;
       }
+    }
+
+    // providers/<id>
+    if (path.length === 2 && path[0] === "providers") {
+      const parsed = UpdateProviderBody.safeParse(await req.json().catch(() => null));
+      if (!parsed.success) return json({ error: "Invalid provider update." }, 400);
+      if (!(await findProvider(path[1]))) return json({ error: "Unknown provider." }, 404);
+
+      const b = parsed.data;
+      try {
+        await saveProvider(path[1] as ProviderId, {
+          // An empty string clears a stored key; undefined leaves it alone, so
+          // the screen never has to send a key back it was never given.
+          ...(b.apiKey !== undefined && { api_key: b.apiKey.trim() || null }),
+          ...(b.model !== undefined && { model: b.model.trim() || null }),
+          ...(b.enabled !== undefined && { enabled: b.enabled }),
+          ...(b.priority !== undefined && { priority: b.priority }),
+        });
+      } catch (err) {
+        if (err instanceof ProvidersTableMissingError) return json({ error: err.message }, 409);
+        throw err;
+      }
+      return json({ ok: true });
     }
 
     // topics/<id>

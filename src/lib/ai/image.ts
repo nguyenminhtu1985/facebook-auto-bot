@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { env } from "@/lib/env";
+import { findProvider } from "@/lib/db/providers";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { ImageSource, ImageSourcePref } from "@/lib/types";
 
@@ -34,7 +34,9 @@ async function fetchAiImageBytes(prompt: string): Promise<Blob> {
 }
 
 async function fetchStockImageBytes(query: string): Promise<Blob> {
-  if (!env.pexelsApiKey) throw new Error("PEXELS_API_KEY is not configured");
+  const pexels = await findProvider("pexels");
+  const key = pexels?.enabled ? pexels.apiKey : null;
+  if (!key) throw new Error("No Pexels key is set up on the Providers screen");
 
   const searchUrl = `https://api.pexels.com/v1/search?${new URLSearchParams({
     query,
@@ -42,7 +44,7 @@ async function fetchStockImageBytes(query: string): Promise<Blob> {
     per_page: "10",
   })}`;
   const searchRes = await fetch(searchUrl, {
-    headers: { Authorization: env.pexelsApiKey },
+    headers: { Authorization: key },
     signal: AbortSignal.timeout(15_000),
   });
   if (!searchRes.ok) throw new Error(`Pexels search failed (${searchRes.status})`);

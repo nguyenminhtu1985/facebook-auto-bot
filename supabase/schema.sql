@@ -98,6 +98,22 @@ create table if not exists topics (
 create unique index if not exists topics_text_lower_idx on topics (lower(text));
 create index if not exists topics_rotation_idx on topics (enabled, last_used_at nulls first);
 
+-- Keys and ordering for the outside services that write posts and find
+-- images. The catalogue of what exists lives in the code; this table only
+-- holds what the owner configured, so a provider with no row simply falls
+-- back to its defaults.
+create table if not exists ai_providers (
+  id text primary key,
+  api_key text,
+  model text,
+  enabled boolean not null default true,
+  priority integer not null default 100,
+  last_tested_at timestamptz,
+  last_status text,                 -- 'ok' | 'failed'
+  last_error text,
+  updated_at timestamptz not null default now()
+);
+
 -- Public bucket every generated/sourced image is re-hosted into, so a post's
 -- image keeps working even if the free provider it came from goes down later.
 insert into storage.buckets (id, name, public)

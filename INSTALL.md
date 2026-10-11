@@ -1,7 +1,7 @@
 # Installation guide
 
-This takes you from nothing to a bot that writes and publishes Facebook Page posts
-on its own. Everything used here is free, and **you do not need to write any
+This takes you from nothing to a bot that writes and publishes Facebook Page posts —
+and Instagram posts, if you want them — on its own. Everything used here is free, and **you do not need to write any
 code** — there is nothing to download, compile or run on your computer.
 
 Set aside about 30 minutes the first time.
@@ -29,6 +29,9 @@ and takes two minutes from your Facebook account.
 - A **Generate** screen: type a topic, get a written post plus a matching image
 - A **Queue** for scheduling, and a **History** of what published
 - **Autopilot**, which invents topics and posts on a schedule with nobody clicking
+- **Instagram as well as Facebook**, if you link an Instagram professional account
+- An **AI providers** screen listing every service the app uses, where you paste your
+  own keys (Groq, Gemini, Claude, ChatGPT) and choose the order they are tried in
 
 ---
 
@@ -333,6 +336,26 @@ it. Step 7 covers going public when you are ready.
 Now open **Generate**, type a topic, click **Generate**, then **Publish now**. A
 **View post** link appears — click it to see the post on your Page.
 
+### Posting to Instagram as well
+
+Instagram rides on the same connection — there is no second login — but it needs
+an Instagram **professional** account linked to this Facebook Page:
+
+1. In the Instagram app: **Settings → Account type and tools → Switch to
+   professional account** (Business or Creator; both work, and it is free).
+2. Still in Instagram: **Edit profile → Page** and connect your Facebook Page.
+3. Back in the app's **Settings**, press **Check for Instagram**. It should find
+   the account and show its username.
+4. Tick **Instagram** under *Where to post*.
+
+From then on every post — manual or autopilot — goes to whichever destinations
+are ticked, with the same image and caption, and the Generate, Queue and History
+screens link to each one.
+
+> Instagram captions do not make links clickable, so a link in a post is
+> cosmetic there. Meta also caps API publishing at 100 posts per 24 hours, far
+> above anything autopilot will do.
+
 > ### If your deployment answers on more than one address
 >
 > Vercel usually gives a project two hostnames. Facebook checks the one you were
@@ -343,24 +366,39 @@ Now open **Generate**, type a topic, click **Generate**, then **Publish now**. A
 
 ---
 
-## Step 5 — Better AI copy (optional, still free)
+## Step 5 — AI providers
 
-Without an AI key the app falls back to template copy — and tells you so on the
-Generate screen rather than passing it off as AI writing. The keyless service it
-used to rely on now rejects anonymous traffic.
+*About 3 minutes. Do this one — without it the posts are written from a template.*
 
-To restore real generation, get a free key from either provider and add it as an
-environment variable in Vercel:
+Open **AI providers** in the sidebar. It lists every outside service the app can
+use, what each costs, and which are active right now.
 
-| Variable | Get one at |
-| --- | --- |
-| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) |
-| `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+**Get one free key to start.** [console.groq.com/keys](https://console.groq.com/keys)
+— sign in, create a key, paste it into the Groq row, click **Save**, then
+**Test**. The test lists the models your key can reach; click one to use it.
 
-Redeploy afterwards — Vercel only applies environment variables to new
-deployments.
+That is enough. The rest are optional:
 
-Image generation needs no key and already works.
+| Provider | What it does | Cost |
+| --- | --- | --- |
+| **Groq** | Writes posts | Free tier — start here |
+| **Google Gemini** | Writes posts | Free tier — a good backup |
+| **Claude** | Writes posts | Paid, best writing |
+| **ChatGPT (OpenAI)** | Writes posts | Paid |
+| **Pollinations** | Writes posts | Free, no key — unreliable now |
+| **Pollinations images** | Makes the picture | Free, no key — already working |
+| **Pexels** | Stock photos instead of AI ones | Free tier |
+
+Writers are tried from the top of the list down until one answers, so you can put
+a free one first and a paid one behind it as a backstop. Use the arrows to
+reorder, the switch to turn one off, and **Test** whenever a key looks wrong.
+
+Keys are stored in your own database and used only on the server — the screen
+never shows one back to you, and no redeploy is needed.
+
+> Keys set as environment variables (`GROQ_API_KEY`, `GEMINI_API_KEY`,
+> `PEXELS_API_KEY`) still work and show as *set as an environment variable*. A key
+> saved on the screen wins over one.
 
 ---
 
@@ -511,6 +549,15 @@ Expected, and not a bug. While the Meta app is in **Development** mode its posts
 are visible only to people with a role on the app. Switching to **Live** makes
 them public — including the ones already published — and that needs App Review
 for `pages_manage_posts`. See step 7.
+
+**The AI providers screen says "One database step to manage providers here"**
+Same cause and same fix as below: run `supabase/schema.sql` again. Keys set as
+environment variables keep working until you do.
+
+**My posts say the copy came from a template**
+No writer answered. Open **AI providers**, press **Test** on each one that has a
+key, and read what it says. The usual causes are no key at all, a key that was
+revoked, or a model name the key cannot reach — the test names which.
 
 **The Topics screen says "One database step to enable topics"**
 Your database was created before topics existed. Run `supabase/schema.sql` again

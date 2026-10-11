@@ -86,9 +86,15 @@ export interface PageCache {
   fetched_at: string;
 }
 
-/** Which free service actually wrote the copy. "template" means every AI
+/** Which service actually wrote the copy. "template" means every configured
  *  provider was unreachable and the deterministic fallback was used. */
-export type ContentProvider = "groq" | "gemini" | "pollinations" | "template";
+export type ContentProvider =
+  | "groq"
+  | "gemini"
+  | "anthropic"
+  | "openai"
+  | "pollinations"
+  | "template";
 
 export interface GeneratedContent {
   title: string;
