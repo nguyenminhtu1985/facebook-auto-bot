@@ -33,6 +33,7 @@ import {
   fetchPages,
   missingPermissions,
   FacebookNotConnectedError,
+  INSTAGRAM_PERMISSIONS,
 } from "@/lib/facebook/client";
 import {
   buildAuthorizeUrl,
@@ -227,6 +228,45 @@ export async function GET(req: Request, ctx: Ctx) {
         }
         throw err;
       }
+    }
+
+    if (route === "facebook/instagram") {
+      const settings = await getSettings();
+      if (!settings.facebook_user_token) {
+        return json({ error: "Connect Facebook first." }, 409);
+      }
+
+      // The scopes were added after this app shipped, so a token issued
+      // earlier has none of them and publishing would fail with a bare
+      // "(#200)" long after the owner thought they were set up.
+      const missing = await missingPermissions(
+        settings.facebook_user_token,
+        INSTAGRAM_PERMISSIONS
+      );
+
+      let pages: Awaited<ReturnType<typeof fetchPages>> = [];
+      let lookupError: string | null = null;
+      try {
+        pages = await fetchPages();
+      } catch (err) {
+        lookupError = err instanceof Error ? err.message : "Couldn't read your Pages.";
+      }
+
+      return json({
+        needsReconnect: missing.length > 0,
+        missingPermissions: missing,
+        lookupError,
+        selectedPageId: settings.default_page_id,
+        connected: settings.instagram_user_id
+          ? { id: settings.instagram_user_id, username: settings.instagram_username }
+          : null,
+        pages: pages.map((p) => ({
+          id: p.id,
+          name: p.name,
+          isSelected: p.id === settings.default_page_id,
+          instagram: p.instagram,
+        })),
+      });
     }
 
     if (route === "facebook/oauth/start") {
@@ -432,6 +472,35 @@ export async function POST(req: Request, ctx: Ctx) {
         const instagram = await rememberInstagramAccount(page.id, page.access_token);
 
         return json({ ok: true, pageName: page.name, instagram: instagram?.username ?? null });
+      } catch (err) {
+        if (err instanceof FacebookNotConnectedError) return json({ error: err.message }, 409);
+        throw err;
+      }
+    }
+
+    if (route === "facebook/instagram/select") {
+      const parsed = DefaultPageBody.safeParse(await req.json().catch(() => null));
+      if (!parsed.success) return json({ error: "pageId is required." }, 400);
+
+      try {
+        const page = (await fetchPages()).find((p) => p.id === parsed.data.pageId);
+        if (!page) return json({ error: "That Page is not available on this account." }, 404);
+        if (!page.instagram) {
+          return json({ error: "That Page has no Instagram professional account linked." }, 409);
+        }
+
+        // Publishing to Instagram uses the token of the Page it hangs off, so
+        // choosing an Instagram account means selecting that Page as well.
+        await updateSettings({
+          default_page_id: page.id,
+          default_page_name: page.name,
+          default_page_token: page.access_token,
+          instagram_user_id: page.instagram.id,
+          instagram_username: page.instagram.username,
+          post_to_instagram: true,
+        });
+
+        return json({ ok: true, page: page.name, instagram: page.instagram });
       } catch (err) {
         if (err instanceof FacebookNotConnectedError) return json({ error: err.message }, 409);
         throw err;
@@ -682,7 +751,14 @@ async function getPages(refresh: boolean) {
         await db.from("pages_cache").delete().neq("page_id", "");
         await db
           .from("pages_cache")
-          .insert(pages.map((p) => ({ page_id: p.id, name: p.name, category: p.category })));
+          .insert(
+            pages.map((p) => ({
+              page_id: p.id,
+              name: p.name,
+              category: p.category,
+              instagram_username: p.instagram?.username ?? null,
+            }))
+          );
       }
     }
 

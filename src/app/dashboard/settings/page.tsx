@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -33,6 +33,14 @@ const TIMEZONES = [
   "Australia/Sydney",
   "UTC",
 ];
+
+interface InstagramStatus {
+  needsReconnect: boolean;
+  missingPermissions: string[];
+  lookupError: string | null;
+  connected: { id: string; username: string | null } | null;
+  pages: { id: string; name: string; isSelected: boolean; instagram: { id: string; username: string } | null }[];
+}
 
 interface SettingsState {
   facebook_connected: boolean;
@@ -71,6 +79,7 @@ function SettingsForm() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [instagram, setInstagram] = useState<InstagramStatus | null>(null);
   const [checkingInstagram, setCheckingInstagram] = useState(false);
   const [instagramNote, setInstagramNote] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,31 +115,52 @@ function SettingsForm() {
       .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load settings."));
   }, []);
 
-  async function refreshInstagram() {
+  const loadInstagram = useCallback(async () => {
     setCheckingInstagram(true);
     setInstagramNote(null);
     try {
-      const res = await fetch("/api/facebook/instagram-refresh", { method: "POST" });
+      const res = await fetch("/api/facebook/instagram");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Couldn't check for an Instagram account.");
-
-      setSettings((s) =>
-        s
-          ? {
-              ...s,
-              instagram_linked: Boolean(data.instagram),
-              instagram_username: data.instagram?.username ?? null,
-            }
-          : s
-      );
-      setInstagramNote(
-        data.instagram
-          ? `Found @${data.instagram.username}` +
-              (data.quota ? ` · ${data.quota.used} of ${data.quota.limit} posts used today` : "")
-          : "No Instagram professional account is linked to this Page yet."
-      );
+      if (!res.ok) throw new Error(data.error ?? "Couldn't check Instagram.");
+      setInstagram(data);
     } catch (err) {
-      setInstagramNote(err instanceof Error ? err.message : "Couldn't check for an Instagram account.");
+      setInstagramNote(err instanceof Error ? err.message : "Couldn't check Instagram.");
+    } finally {
+      setCheckingInstagram(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (settings?.facebook_connected) loadInstagram();
+  }, [settings?.facebook_connected, loadInstagram]);
+
+  async function connectInstagramVia(pageId: string) {
+    setCheckingInstagram(true);
+    setInstagramNote(null);
+    try {
+      const res = await fetch("/api/facebook/instagram/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Couldn't use that account.");
+
+      setInstagramNote(`Connected @${data.instagram.username} through ${data.page}.`);
+      setSettings((prev) =>
+        prev
+          ? {
+              ...prev,
+              instagram_linked: true,
+              instagram_username: data.instagram.username,
+              post_to_instagram: true,
+              default_page_name: data.page,
+            }
+          : prev
+      );
+      await loadInstagram();
+    } catch (err) {
+      setInstagramNote(err instanceof Error ? err.message : "Couldn't use that account.");
     } finally {
       setCheckingInstagram(false);
     }
@@ -350,26 +380,110 @@ function SettingsForm() {
                   <InstagramLogo size={16} weight="fill" /> Instagram
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {settings.instagram_linked ? (
-                    <>Posts to @{settings.instagram_username} with the same image and caption.</>
-                  ) : (
-                    <>
-                      Needs an Instagram <strong>professional</strong> account linked to this Page.
-                      In the Instagram app: Settings → Account type and tools → Switch to
-                      professional account, then connect it to your Facebook Page.
-                    </>
-                  )}
+                  {settings.instagram_linked
+                    ? `Posts to @${settings.instagram_username} with the same image and caption.`
+                    : "Not connected yet — see below."}
                 </span>
               </span>
             </label>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="secondary" onClick={refreshInstagram} disabled={checkingInstagram}>
-              <ArrowClockwise size={14} className={checkingInstagram ? "animate-spin" : ""} />
-              {checkingInstagram ? "Checking…" : "Check for Instagram"}
-            </Button>
-            {instagramNote && <span className="text-xs text-muted-foreground">{instagramNote}</span>}
+          {/* Instagram connection */}
+          <div className="mt-4 rounded-xl border border-border bg-surface-2/40 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <InstagramLogo size={16} weight="fill" /> Instagram connection
+              </h3>
+              <Button size="sm" variant="secondary" onClick={loadInstagram} disabled={checkingInstagram}>
+                <ArrowClockwise size={14} className={checkingInstagram ? "animate-spin" : ""} />
+                {checkingInstagram ? "Checking…" : "Check again"}
+              </Button>
+            </div>
+
+            {instagram?.needsReconnect && (
+              <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+                <p className="font-semibold">Your Facebook connection predates Instagram support.</p>
+                <p className="mt-1 text-muted-foreground">
+                  It was granted before this app asked for{" "}
+                  <code className="rounded bg-surface-2 px-1">{instagram.missingPermissions.join(", ")}</code>,
+                  so Instagram posts would be rejected. Reconnect to grant them — your Page, posts
+                  and settings are untouched.
+                </p>
+                {/* A plain anchor: this route answers with a redirect to Facebook. */}
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+                <a href="/api/facebook/oauth/start" className="mt-2 inline-block">
+                  <Button size="sm">
+                    <LinkSimple size={14} /> Reconnect with Instagram access
+                  </Button>
+                </a>
+              </div>
+            )}
+
+            {instagram && !instagram.needsReconnect && (
+              <>
+                {instagram.pages.some((p) => p.instagram) ? (
+                  <ul className="mt-3 space-y-2">
+                    {instagram.pages
+                      .filter((p) => p.instagram)
+                      .map((p) => {
+                        const inUse = p.instagram!.id === instagram.connected?.id;
+                        return (
+                          <li
+                            key={p.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background px-3 py-2"
+                          >
+                            <span className="text-sm text-foreground">
+                              <strong>@{p.instagram!.username}</strong>
+                              <span className="text-muted-foreground"> · via {p.name}</span>
+                            </span>
+                            {inUse ? (
+                              <span className="flex items-center gap-1 text-xs font-semibold text-success">
+                                <CheckCircle size={14} /> In use
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={checkingInstagram}
+                                onClick={() => connectInstagramVia(p.id)}
+                              >
+                                Use this account
+                              </Button>
+                            )}
+                          </li>
+                        );
+                      })}
+                  </ul>
+                ) : (
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    <p>
+                      No Instagram professional account is linked to any of your Pages
+                      {instagram.pages.length > 0 && ` (${instagram.pages.map((p) => p.name).join(", ")})`}.
+                      Instagram only allows posting through the API to a professional account
+                      attached to a Facebook Page:
+                    </p>
+                    <ol className="mt-2 ml-4 list-decimal space-y-1">
+                      <li>
+                        In the Instagram app: <strong>Settings → Account type and tools → Switch to
+                        professional account</strong>. Business or Creator both work, and it is free.
+                      </li>
+                      <li>
+                        Then <strong>Edit profile → Page</strong> and connect it to your Facebook Page.
+                      </li>
+                      <li>Come back here and press <strong>Check again</strong>.</li>
+                    </ol>
+                  </div>
+                )}
+
+                {instagram.lookupError && (
+                  <p className="mt-2 text-xs text-destructive">{instagram.lookupError}</p>
+                )}
+              </>
+            )}
+
+            {instagramNote && (
+              <p className="mt-2 text-xs text-muted-foreground">{instagramNote}</p>
+            )}
           </div>
 
           {settings.post_to_instagram && settings.post_to_facebook === false && (

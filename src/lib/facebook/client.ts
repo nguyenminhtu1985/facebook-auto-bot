@@ -47,6 +47,13 @@ export interface FacebookPage {
   category: string | null;
   /** Non-expiring when minted from a long-lived user token. */
   access_token: string;
+  /**
+   * The Instagram professional account linked to this Page, if any. Asked for
+   * here rather than per Page: Instagram can be attached to any Page the
+   * account manages, not just the one currently selected, and looking at only
+   * that one is how a linked account goes unnoticed.
+   */
+  instagram: { id: string; username: string } | null;
 }
 
 /**
@@ -64,7 +71,7 @@ export async function fetchPages(): Promise<FacebookPage[]> {
   do {
     const params: Record<string, string> = {
       access_token: settings.facebook_user_token,
-      fields: "id,name,category,access_token,tasks",
+      fields: "id,name,category,access_token,tasks,instagram_business_account{id,username}",
       limit: "100",
     };
     if (after) params.after = after;
@@ -77,6 +84,12 @@ export async function fetchPages(): Promise<FacebookPage[]> {
         name: p.name,
         category: p.category ?? null,
         access_token: p.access_token,
+        instagram: p.instagram_business_account?.id
+          ? {
+              id: p.instagram_business_account.id,
+              username: p.instagram_business_account.username ?? "",
+            }
+          : null,
       });
     }
     after = data.paging?.cursors?.after && data.paging?.next ? data.paging.cursors.after : undefined;
@@ -92,6 +105,9 @@ export const REQUIRED_PERMISSIONS = [
   "pages_read_engagement",
 ];
 
+/** Needed only to publish to Instagram. */
+export const INSTAGRAM_PERMISSIONS = ["instagram_basic", "instagram_content_publish"];
+
 /**
  * Which of the required permissions the connected account actually granted.
  *
@@ -100,7 +116,10 @@ export const REQUIRED_PERMISSIONS = [
  * `pages_manage_posts` connects perfectly and then fails at publish time with a
  * bare "(#200) Permissions error" that names nothing.
  */
-export async function missingPermissions(userToken: string): Promise<string[]> {
+export async function missingPermissions(
+  userToken: string,
+  wanted: string[] = REQUIRED_PERMISSIONS
+): Promise<string[]> {
   try {
     const data = await graph("/me/permissions", { access_token: userToken });
     const granted = new Set(
@@ -108,7 +127,7 @@ export async function missingPermissions(userToken: string): Promise<string[]> {
         .filter((p: { status: string }) => p.status === "granted")
         .map((p: { permission: string }) => p.permission)
     );
-    return REQUIRED_PERMISSIONS.filter((p) => !granted.has(p));
+    return wanted.filter((p) => !granted.has(p));
   } catch {
     return [];
   }

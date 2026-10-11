@@ -79,6 +79,7 @@ create table if not exists pages_cache (
   page_id text primary key,
   name text not null,
   category text,
+  instagram_username text,
   fetched_at timestamptz not null default now()
 );
 
@@ -137,6 +138,8 @@ alter table app_settings add column if not exists instagram_user_id text;
 alter table app_settings add column if not exists instagram_username text;
 alter table app_settings add column if not exists post_to_facebook boolean not null default true;
 alter table app_settings add column if not exists post_to_instagram boolean not null default false;
+
+alter table pages_cache add column if not exists instagram_username text;
 
 alter table posts add column if not exists instagram_post_id text;
 alter table posts add column if not exists instagram_permalink text;

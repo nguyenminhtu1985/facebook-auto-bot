@@ -107,9 +107,16 @@ export default function PagesPage() {
                     <FlagBanner size={16} className="text-muted-foreground" />
                     <div>
                       <p className="font-medium text-foreground">{page.name}</p>
-                      {page.category && (
-                        <p className="text-xs text-muted-foreground">{page.category}</p>
-                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {page.category}
+                        {page.instagram_username && (
+                          <>
+                            {page.category ? " · " : ""}
+                            <span className="text-primary">@{page.instagram_username}</span> on
+                            Instagram
+                          </>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <Button

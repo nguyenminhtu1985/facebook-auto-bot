@@ -83,6 +83,7 @@ export interface PageCache {
   page_id: string;
   name: string;
   category: string | null;
+  instagram_username?: string | null;
   fetched_at: string;
 }
 

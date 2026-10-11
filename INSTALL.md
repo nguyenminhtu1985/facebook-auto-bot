@@ -344,9 +344,18 @@ an Instagram **professional** account linked to this Facebook Page:
 1. In the Instagram app: **Settings → Account type and tools → Switch to
    professional account** (Business or Creator; both work, and it is free).
 2. Still in Instagram: **Edit profile → Page** and connect your Facebook Page.
-3. Back in the app's **Settings**, press **Check for Instagram**. It should find
-   the account and show its username.
-4. Tick **Instagram** under *Where to post*.
+3. Back in the app's **Settings**, find **Instagram connection** and press
+   **Check again**. It looks at *every* Page you manage, not just the selected
+   one, and lists any Instagram account it finds.
+4. Press **Use this account**. If that account hangs off a different Page, the
+   app switches to that Page as well — Instagram publishes with the token of
+   the Page it is attached to, so the two go together.
+
+> **Connected before Instagram support shipped?** Then your login never granted
+> `instagram_basic` and `instagram_content_publish`, and posts would be rejected
+> even with an account linked. The Instagram connection card detects exactly
+> this and shows a **Reconnect with Instagram access** button. Reconnecting
+> leaves your Page, posts and settings untouched.
 
 From then on every post — manual or autopilot — goes to whichever destinations
 are ticked, with the same image and caption, and the Generate, Queue and History
@@ -573,6 +582,12 @@ to trending ideas rather than stopping.
 You are probably looking at a repository you already own — GitHub does not offer
 to fork a repo into the account that already holds it. Nothing to do: go to Vercel
 and import it directly.
+
+**Instagram posts fail, or the Instagram box will not tick**
+Open **Settings → Instagram connection**. It tells you which of the three things
+is wrong: the login predates Instagram support (press Reconnect), no Page has a
+professional account linked (the steps are on that card), or the account is on a
+different Page (press Use this account).
 
 **Meta asks me to verify my business**
 You can ignore it. Business Verification is required for Advanced Access, which
