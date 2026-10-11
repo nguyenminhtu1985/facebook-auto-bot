@@ -5,7 +5,7 @@ import { ArrowSquareOut } from "@phosphor-icons/react/dist/ssr";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import { facebookPostUrl } from "@/lib/types";
+import { postLinks } from "@/lib/types";
 import type { Post, PostStatus } from "@/lib/types";
 
 const FILTERS: { label: string; value: PostStatus | "all" }[] = [
@@ -106,16 +106,19 @@ export default function HistoryPage() {
                       })}
                     </td>
                     <td className="py-3 text-right">
-                      {post.facebook_post_id && (
-                        <a
-                          href={facebookPostUrl(post.facebook_post_id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                        >
-                          View <ArrowSquareOut size={12} />
-                        </a>
-                      )}
+                      <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+                        {postLinks(post).map((link) => (
+                          <a
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                          >
+                            {link.label} <ArrowSquareOut size={12} />
+                          </a>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 ))}

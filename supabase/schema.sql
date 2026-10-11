@@ -27,6 +27,12 @@ create table if not exists app_settings (
   default_page_id text,
   default_page_name text,
   default_page_token text,
+  -- Instagram professional account linked to that Page, discovered through it.
+  -- Publishing uses the Page token, so there is no separate Instagram token.
+  instagram_user_id text,
+  instagram_username text,
+  post_to_facebook boolean not null default true,
+  post_to_instagram boolean not null default false,
   image_source text not null default 'ai',        -- 'ai' | 'stock' | 'mixed'
   utm_suffix text default '',
   auto_post_enabled boolean not null default false,
@@ -59,6 +65,8 @@ create table if not exists posts (
   scheduled_at timestamptz,
   posted_at timestamptz,
   facebook_post_id text,
+  instagram_post_id text,
+  instagram_permalink text,
   error_message text,
   created_at timestamptz not null default now()
 );
@@ -109,3 +117,10 @@ alter table app_settings add column if not exists facebook_app_id text;
 alter table app_settings add column if not exists facebook_app_secret text;
 alter table app_settings add column if not exists facebook_config_id text;
 alter table app_settings add column if not exists topic_source text not null default 'mine';
+alter table app_settings add column if not exists instagram_user_id text;
+alter table app_settings add column if not exists instagram_username text;
+alter table app_settings add column if not exists post_to_facebook boolean not null default true;
+alter table app_settings add column if not exists post_to_instagram boolean not null default false;
+
+alter table posts add column if not exists instagram_post_id text;
+alter table posts add column if not exists instagram_permalink text;

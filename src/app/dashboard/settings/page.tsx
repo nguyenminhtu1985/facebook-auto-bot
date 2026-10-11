@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   FacebookLogo,
+  InstagramLogo,
+  ArrowClockwise,
   CheckCircle,
   WarningCircle,
   LinkSimple,
@@ -42,6 +44,10 @@ interface SettingsState {
   facebook_app_secret_set?: boolean;
   facebook_user_name: string | null;
   default_page_name: string | null;
+  instagram_linked?: boolean;
+  instagram_username?: string | null;
+  post_to_facebook?: boolean;
+  post_to_instagram?: boolean;
   image_source: ImageSourcePref;
   utm_suffix: string;
   auto_post_enabled: boolean;
@@ -65,6 +71,8 @@ function SettingsForm() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [checkingInstagram, setCheckingInstagram] = useState(false);
+  const [instagramNote, setInstagramNote] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [appId, setAppId] = useState("");
@@ -97,6 +105,36 @@ function SettingsForm() {
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load settings."));
   }, []);
+
+  async function refreshInstagram() {
+    setCheckingInstagram(true);
+    setInstagramNote(null);
+    try {
+      const res = await fetch("/api/facebook/instagram-refresh", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Couldn't check for an Instagram account.");
+
+      setSettings((s) =>
+        s
+          ? {
+              ...s,
+              instagram_linked: Boolean(data.instagram),
+              instagram_username: data.instagram?.username ?? null,
+            }
+          : s
+      );
+      setInstagramNote(
+        data.instagram
+          ? `Found @${data.instagram.username}` +
+              (data.quota ? ` · ${data.quota.used} of ${data.quota.limit} posts used today` : "")
+          : "No Instagram professional account is linked to this Page yet."
+      );
+    } catch (err) {
+      setInstagramNote(err instanceof Error ? err.message : "Couldn't check for an Instagram account.");
+    } finally {
+      setCheckingInstagram(false);
+    }
+  }
 
   async function saveCredentials() {
     setCredsError(null);
@@ -257,6 +295,90 @@ function SettingsForm() {
           )}
         </div>
       </Card>
+
+      {/* Where posts go */}
+      {settings.facebook_connected && (
+        <Card>
+          <h2 className="font-heading font-bold text-foreground">Where to post</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Every post — manual or autopilot — goes to whichever of these is switched on.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3.5 transition hover:bg-surface-2">
+              <input
+                type="checkbox"
+                checked={settings.post_to_facebook !== false}
+                onChange={(e) => {
+                  setSettings({ ...settings, post_to_facebook: e.target.checked });
+                  save({ post_to_facebook: e.target.checked });
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <FacebookLogo size={16} weight="fill" /> Facebook Page
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {settings.default_page_name
+                    ? `Posts to ${settings.default_page_name}.`
+                    : "Choose a Page on the Pages screen first."}
+                </span>
+              </span>
+            </label>
+
+            <label
+              className={cn(
+                "flex items-start gap-3 rounded-xl border border-border p-3.5 transition",
+                settings.instagram_linked
+                  ? "cursor-pointer hover:bg-surface-2"
+                  : "cursor-not-allowed opacity-70"
+              )}
+            >
+              <input
+                type="checkbox"
+                disabled={!settings.instagram_linked}
+                checked={settings.post_to_instagram === true}
+                onChange={(e) => {
+                  setSettings({ ...settings, post_to_instagram: e.target.checked });
+                  save({ post_to_instagram: e.target.checked });
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <InstagramLogo size={16} weight="fill" /> Instagram
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {settings.instagram_linked ? (
+                    <>Posts to @{settings.instagram_username} with the same image and caption.</>
+                  ) : (
+                    <>
+                      Needs an Instagram <strong>professional</strong> account linked to this Page.
+                      In the Instagram app: Settings → Account type and tools → Switch to
+                      professional account, then connect it to your Facebook Page.
+                    </>
+                  )}
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button size="sm" variant="secondary" onClick={refreshInstagram} disabled={checkingInstagram}>
+              <ArrowClockwise size={14} className={checkingInstagram ? "animate-spin" : ""} />
+              {checkingInstagram ? "Checking…" : "Check for Instagram"}
+            </Button>
+            {instagramNote && <span className="text-xs text-muted-foreground">{instagramNote}</span>}
+          </div>
+
+          {settings.post_to_instagram && settings.post_to_facebook === false && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Instagram only. Note that Instagram captions do not make links clickable.
+            </p>
+          )}
+        </Card>
+      )}
 
       {/* Meta app credentials */}
       <Card>

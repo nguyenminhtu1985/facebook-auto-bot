@@ -40,8 +40,9 @@ import {
   exchangeForLongLivedToken,
 } from "@/lib/facebook/oauth";
 import { getFacebookCredentials, isFacebookConfigured } from "@/lib/facebook/credentials";
+import { fetchLinkedAccount, remainingQuota } from "@/lib/instagram/client";
 import { OAUTH_STATE_COOKIE } from "@/lib/facebook/oauth-state";
-import { publishPostNow } from "@/lib/facebook/publish";
+import { publishPostNow } from "@/lib/publish";
 import { maybeRunAutopilot } from "@/lib/autopilot";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { PostStatus } from "@/lib/types";
@@ -133,6 +134,7 @@ async function publicSettings(settings: Awaited<ReturnType<typeof getSettings>>)
     facebook_app_secret_set: Boolean(facebook_app_secret),
     facebook_connected: Boolean(facebook_user_token),
     facebook_page_ready: Boolean(default_page_token),
+    instagram_linked: Boolean(settings.instagram_user_id),
     facebook_configured: await isFacebookConfigured(),
   };
 }
@@ -366,7 +368,13 @@ export async function POST(req: Request, ctx: Ctx) {
           default_page_name: page.name,
           default_page_token: page.access_token,
         });
-        return json({ ok: true, pageName: page.name });
+
+        // Best effort: an Instagram professional account linked to this Page
+        // can be published to with the same token, so remember it now rather
+        // than making the owner go looking for a separate connect button.
+        const instagram = await rememberInstagramAccount(page.id, page.access_token);
+
+        return json({ ok: true, pageName: page.name, instagram: instagram?.username ?? null });
       } catch (err) {
         if (err instanceof FacebookNotConnectedError) return json({ error: err.message }, 409);
         throw err;
@@ -403,6 +411,23 @@ export async function POST(req: Request, ctx: Ctx) {
       return json({ ok: true });
     }
 
+    if (route === "facebook/instagram-refresh") {
+      const settings = await getSettings();
+      if (!settings.default_page_id || !settings.default_page_token) {
+        return json({ error: "Choose a Facebook Page first." }, 409);
+      }
+      const instagram = await rememberInstagramAccount(
+        settings.default_page_id,
+        settings.default_page_token
+      );
+      // Only worth a call when there is an account; Meta caps API publishing
+      // per 24 hours and it is the one Instagram limit worth seeing.
+      const quota = instagram
+        ? await remainingQuota(instagram.id, settings.default_page_token)
+        : null;
+      return json({ ok: true, instagram, quota });
+    }
+
     if (route === "facebook/disconnect") {
       await updateSettings({
         facebook_user_token: null,
@@ -412,6 +437,11 @@ export async function POST(req: Request, ctx: Ctx) {
         default_page_name: null,
         default_page_token: null,
       });
+      // Separate update: these columns are missing on databases that predate
+      // Instagram support, and disconnecting must work there too.
+      try {
+        await updateSettings({ instagram_user_id: null, instagram_username: null });
+      } catch {}
       await supabaseAdmin().from("pages_cache").delete().neq("page_id", "");
       return json({ ok: true });
     }
@@ -430,6 +460,8 @@ const SettingsBody = z.object({
   posting_hours: z.array(z.number().int().min(0).max(23)).min(1).max(24).optional(),
   timezone: z.string().min(1).max(64).optional(),
   topic_source: z.enum(["mine", "trending", "mixed"]).optional(),
+  post_to_facebook: z.boolean().optional(),
+  post_to_instagram: z.boolean().optional(),
 });
 
 const UpdateTopicBody = z.object({
@@ -463,9 +495,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
       try {
         return json(await publicSettings(await updateSettings(parsed.data)));
       } catch (err) {
-        // Installs made before topics existed lack the column until
+        // Installs made before a feature shipped lack its columns until
         // schema.sql is run again.
-        if (err instanceof Error && /topic_source/.test(err.message)) {
+        if (err instanceof Error && /topic_source|post_to_|instagram_/.test(err.message)) {
           return json({ error: new TopicsTableMissingError().message }, 409);
         }
         throw err;
@@ -535,6 +567,24 @@ export async function DELETE(req: Request, ctx: Ctx) {
 }
 
 /* ------------------------------------------------------------- handlers */
+
+/**
+ * Looks up the Instagram professional account linked to a Page and stores it.
+ * Never throws: Instagram is optional, and on a database that predates it the
+ * columns do not exist yet.
+ */
+async function rememberInstagramAccount(pageId: string, pageToken: string) {
+  try {
+    const account = await fetchLinkedAccount(pageId, pageToken);
+    await updateSettings({
+      instagram_user_id: account?.id ?? null,
+      instagram_username: account?.username ?? null,
+    });
+    return account;
+  } catch {
+    return null;
+  }
+}
 
 async function getPages(refresh: boolean) {
   const db = supabaseAdmin();

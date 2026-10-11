@@ -17,7 +17,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { facebookPostUrl } from "@/lib/types";
+import { postLinks } from "@/lib/types";
 import type { GeneratedContent, ImageSource, ImageSourcePref, PageCache } from "@/lib/types";
 
 type Step = "idle" | "generating" | "ready";
@@ -42,7 +42,7 @@ export default function GeneratePage() {
   const [scheduledAt, setScheduledAt] = useState("");
   const [saving, setSaving] = useState<"draft" | "schedule" | "post_now" | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [published, setPublished] = useState<{ label: string; url: string }[]>([]);
 
   useEffect(() => {
     // Arriving from the Topics screen's "write now" link. Read directly rather
@@ -90,7 +90,7 @@ export default function GeneratePage() {
     }
     setError(null);
     setSuccess(null);
-    setPublishedUrl(null);
+    setPublished([]);
     setStep("generating");
     setContent(null);
     setImage(null);
@@ -181,11 +181,7 @@ export default function GeneratePage() {
             ? "Post scheduled."
             : "Published to Facebook 🎉"
       );
-      setPublishedUrl(
-        action === "post_now" && data.post.facebook_post_id
-          ? facebookPostUrl(data.post.facebook_post_id)
-          : null
-      );
+      setPublished(action === "post_now" ? postLinks(data.post) : []);
       setStep("idle");
       setContent(null);
       setImage(null);
@@ -276,16 +272,17 @@ export default function GeneratePage() {
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-success/30 bg-success/10 p-3.5 text-sm text-success">
           <CheckCircle size={18} className="shrink-0" />
           {success}
-          {publishedUrl && (
+          {published.map((link) => (
             <a
-              href={publishedUrl}
+              key={link.url}
+              href={link.url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-semibold underline underline-offset-2"
             >
-              View post <ArrowSquareOut size={13} />
+              View on {link.label} <ArrowSquareOut size={13} />
             </a>
-          )}
+          ))}
         </div>
       )}
 

@@ -15,6 +15,11 @@ export const FACEBOOK_SCOPES = [
   "pages_show_list",
   "pages_manage_posts",
   "pages_read_engagement",
+  // Instagram publishing rides on the Page token. Requesting these costs
+  // nothing for an account with no Instagram linked, and avoids a second
+  // reconnect later for one that has.
+  "instagram_basic",
+  "instagram_content_publish",
 ];
 
 /**

@@ -1,6 +1,6 @@
 import { getSettings, updateSettings } from "@/lib/db/settings";
 import { createPostRecord } from "@/lib/db/posts";
-import { publishPostNow } from "@/lib/facebook/publish";
+import { publishPostNow } from "@/lib/publish";
 import { generateContent } from "@/lib/ai/text";
 import { generateImage } from "@/lib/ai/image";
 import { getTrendingTopics } from "@/lib/trends";

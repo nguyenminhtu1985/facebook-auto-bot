@@ -37,6 +37,15 @@ export interface AppSettings {
   default_page_name: string | null;
   /** Page tokens derived from a long-lived user token do not expire. */
   default_page_token: string | null;
+  /**
+   * Instagram professional account linked to the selected Page. Publishing
+   * goes through the Page token, so Instagram needs no token of its own.
+   * Absent on databases created before Instagram support.
+   */
+  instagram_user_id?: string | null;
+  instagram_username?: string | null;
+  post_to_facebook?: boolean;
+  post_to_instagram?: boolean;
   image_source: ImageSourcePref;
   utm_suffix: string;
   auto_post_enabled: boolean;
@@ -64,6 +73,8 @@ export interface Post {
   scheduled_at: string | null;
   posted_at: string | null;
   facebook_post_id: string | null;
+  instagram_post_id?: string | null;
+  instagram_permalink?: string | null;
   error_message: string | null;
   created_at: string;
 }
@@ -93,6 +104,34 @@ export interface GeneratedContent {
  * `<page-id>_<post-id>`, and that composite is itself addressable.
  */
 export const facebookPostUrl = (postId: string) => `https://www.facebook.com/${postId}`;
+
+/**
+ * Links to a published post, one per destination it reached. Instagram only
+ * appears once Meta has returned a permalink — a media id alone cannot be
+ * turned into a URL.
+ */
+export function postLinks(
+  post: Pick<Post, "facebook_post_id" | "instagram_permalink">
+): { label: string; url: string }[] {
+  const links: { label: string; url: string }[] = [];
+  if (post.facebook_post_id) links.push({ label: "Facebook", url: facebookPostUrl(post.facebook_post_id) });
+  if (post.instagram_permalink) links.push({ label: "Instagram", url: post.instagram_permalink });
+  return links;
+}
+
+/** Where a post went. Both can be on at once. */
+export type PostTarget = "facebook" | "instagram";
+
+export function selectedTargets(
+  s: Pick<AppSettings, "post_to_facebook" | "post_to_instagram">
+): PostTarget[] {
+  const targets: PostTarget[] = [];
+  // Undefined on databases older than Instagram support, where Facebook was
+  // the only destination.
+  if (s.post_to_facebook !== false) targets.push("facebook");
+  if (s.post_to_instagram === true) targets.push("instagram");
+  return targets;
+}
 
 export const isFacebookConnected = (s: Pick<AppSettings, "facebook_user_token">) =>
   Boolean(s.facebook_user_token);
