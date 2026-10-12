@@ -309,7 +309,7 @@ export default function GeneratePage() {
                 <Image src={image.url} alt={content.title} fill unoptimized className="object-cover" />
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <Badge>{image.source === "ai" ? "AI generated" : "Stock photo"}</Badge>
+                <Badge>{image.source === "ai" ? "AI generated" : image.source === "library" ? "My photo library" : "Stock photo"}</Badge>
                 <button
                   onClick={generate}
                   className="flex cursor-pointer items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary"
