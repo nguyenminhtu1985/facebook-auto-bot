@@ -56,9 +56,12 @@ export async function syncPhotosFromPage(): Promise<{ imported: number; skipped:
     `${GRAPH_BASE}/${pageId}/photos?` +
     new URLSearchParams({ fields: "images", limit: "50", access_token: token });
   while (url && imported + skipped < 200) {
-    const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    const res: Response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(`Facebook photos API returned ${res.status}`);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      data?: { id: string; images?: { width: number; source: string }[] }[];
+      paging?: { next?: string };
+    };
     for (const photo of data.data ?? []) {
       const images = [...(photo.images ?? [])].sort(
         (a: { width: number }, b: { width: number }) => b.width - a.width
