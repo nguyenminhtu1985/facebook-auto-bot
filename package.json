@@ -1,21 +1,5 @@
-name:
-"pinterest-auto-bot"
-version:
-"0.1.0"
-private:
-true
-
 ▼
-scripts:
-{4}
-dev:
-"next dev"
-build:
-"next build"
-start:
-"next start"
-lint:
-"eslint"
+{6}
 
 ▼
 dependencies:
@@ -36,12 +20,12 @@ react-is:
 "^19.2.8"
 recharts:
 "^3.10.1"
+sharp:
+"^0.34.2"
 tailwind-merge:
 "^3.6.0"
 zod:
 "^4.5.4"
-sharp:
-"^0.34.2"
 
 ▼
 devDependencies:
@@ -62,3 +46,21 @@ tailwindcss:
 "^4"
 typescript:
 "^5"
+name:
+"pinterest-auto-bot"
+private:
+true
+
+▼
+scripts:
+{4}
+build:
+"next build"
+dev:
+"next dev"
+lint:
+"eslint"
+start:
+"next start"
+version:
+"0.1.0"
