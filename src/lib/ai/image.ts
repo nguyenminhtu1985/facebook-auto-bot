@@ -25,14 +25,23 @@ const LIBRARY_FOLDER = "library";
  */
 async function pickLibraryImage(): Promise<{ url: string; source: ImageSource }> {
   const db = supabaseAdmin();
-  const { data, error } = await db.storage.from(STORAGE_BUCKET).list(LIBRARY_FOLDER, { limit: 1000 });
-  if (error) throw new Error(`Photo library list failed: ${error.message}`);
-  const files = (data ?? []).filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f.name));
-  if (files.length === 0) {
-    throw new Error("Photo library is empty — sync photos from your Page or upload some to the library/ folder first");
+  // Look in the library/ folder (Page sync + manual uploads) and the bucket
+  // root (manual uploads), so the owner can drop photos anywhere.
+  const candidates: string[] = [];
+  for (const folder of [LIBRARY_FOLDER, ""]) {
+    const { data, error } = await db.storage.from(STORAGE_BUCKET).list(folder, { limit: 1000 });
+    if (error) throw new Error(`Photo library list failed: ${error.message}`);
+    for (const f of data ?? []) {
+      if (/\.(jpe?g|png|webp|gif)$/i.test(f.name)) {
+        candidates.push(folder ? `${folder}/${f.name}` : f.name);
+      }
+    }
   }
-  const chosen = files[Math.floor(Math.random() * files.length)];
-  const { data: urlData } = db.storage.from(STORAGE_BUCKET).getPublicUrl(`${LIBRARY_FOLDER}/${chosen.name}`);
+  if (candidates.length === 0) {
+    throw new Error("Photo library is empty — sync photos from your Page or upload some to the bucket first");
+  }
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  const { data: urlData } = db.storage.from(STORAGE_BUCKET).getPublicUrl(chosen);
   return { url: urlData.publicUrl, source: "library" };
 }
 
