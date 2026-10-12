@@ -352,8 +352,11 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return safely(async () => {
     const denied = await guard(route, req, url);
-    if (denied) return denied;if (route === "library/sync") {
-  return json(await syncPhotosFromPage());
+    const denied = await guard(route, req, url);
+    if (denied) return denied;
+    if (route === "library/sync") {
+      return json(await syncPhotosFromPage());
+    }
 
     if (route === "auth/login") {
       const parsed = LoginBody.safeParse(await req.json().catch(() => null));
