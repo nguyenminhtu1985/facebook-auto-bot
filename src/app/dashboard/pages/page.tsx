@@ -14,6 +14,8 @@ export default function PagesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [notConnected, setNotConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   const load = useCallback(async (refresh: boolean) => {
     if (refresh) setRefreshing(true);
@@ -58,6 +60,25 @@ export default function PagesPage() {
     }
   }
 
+  async function syncPhotos() {
+    setSyncing(true);
+    setSyncMsg(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/library/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Photo sync failed.");
+      setSyncMsg(
+        `Synced ${data.imported} new photo${data.imported === 1 ? "" : "s"}` +
+          (data.skipped ? `, skipped ${data.skipped} duplicate${data.skipped === 1 ? "" : "s"}.` : ".")
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Photo sync failed.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (notConnected) {
     return (
       <Card className="py-10 text-center">
@@ -78,11 +99,23 @@ export default function PagesPage() {
         <p className="text-sm text-muted-foreground">
           Pick the Page new posts publish to. Only Pages you can create content on are listed.
         </p>
-        <Button size="sm" variant="secondary" onClick={() => load(true)} disabled={refreshing}>
-          <ArrowClockwise size={14} className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? "Refreshing…" : "Refresh from Facebook"}
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" onClick={syncPhotos} disabled={syncing}>
+            <ArrowClockwise size={14} className={syncing ? "animate-spin" : ""} />
+            {syncing ? "Syncing…" : "Sync photos from Page"}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => load(true)} disabled={refreshing}>
+            <ArrowClockwise size={14} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Refreshing…" : "Refresh from Facebook"}
+          </Button>
+        </div>
       </div>
+
+      {syncMsg && (
+        <div className="rounded-xl border border-primary/30 bg-primary/10 p-3.5 text-sm text-primary">
+          {syncMsg}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
