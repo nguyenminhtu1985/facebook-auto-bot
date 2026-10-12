@@ -218,6 +218,7 @@ export default function GeneratePage() {
             <option value="ai">AI-generated image</option>
             <option value="stock">Free stock photo</option>
             <option value="mixed">Mix of both</option>
+            <option value="library">My photo library</option>
           </select>
           <Button onClick={generate} disabled={step === "generating"}>
             <Sparkle size={16} weight="fill" />
