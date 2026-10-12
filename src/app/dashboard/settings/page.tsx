@@ -21,6 +21,8 @@ import { cn } from "@/lib/cn";
 import type { ImageSourcePref } from "@/lib/types";
 
 const TIMEZONES = [
+  "Asia/Ho_Chi_Minh",
+  "Asia/Bangkok",
   "Asia/Karachi",
   "Asia/Kolkata",
   "Asia/Dubai",
