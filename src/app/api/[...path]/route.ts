@@ -311,7 +311,7 @@ const ContentBody = z.object({ topic: z.string().trim().min(2).max(200) });
 
 const ImageBody = z.object({
   prompt: z.string().trim().min(2).max(300),
-  source: z.enum(["ai", "stock", "mixed"]),
+  source: z.enum(["ai", "stock", "mixed", "library"]),
 });
 
 const CreatePostBody = z.object({
