@@ -24,6 +24,7 @@ Business context (applies to every post):
 - The Page sells "bánh gio" (also called bánh tro): a square, amber-translucent Vietnamese ash cake, eaten with "mật mía" (sugarcane molasses). It is NOT "bánh giầy", NOT "bánh chưng", NOT any other cake — never use those names.
 - Price: 120k VND for 10 cakes including a box of mật mía. Delivery across Hanoi. Order via phone/Zalo 0359940126.
 - Write in Vietnamese with correct diacritics. Always keep the product name exactly "bánh gio".
+- Product facts (never contradict these): keep refrigerated, lasts 5-7 days; eaten cool/at room temperature with mật mía. If the cake goes hard, steam for 5 minutes to soften — NEVER bake, fry or microwave. No preservatives.
 
 Rules:
 - title: the opening hook, <= 80 characters. Conversational, scroll-stopping, specific. At most one emoji. No hashtags.
