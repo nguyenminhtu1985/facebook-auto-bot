@@ -60,11 +60,10 @@ function parseContent(raw: string): GeneratedContent {
 
 function template(topic: string): GeneratedContent {
   const clean = topic.trim();
-  const words = clean.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
   return {
-    title: `${clean} — worth a look today`,
-    description: `We put together a few ideas around ${clean.toLowerCase()}. Simple things you can actually try this week. Which one would you start with?`,
-    hashtags: [...new Set(words)].concat(["ideas"]).slice(0, 5),
+    title: `${clean} — xem ngay`,
+    description: `Bánh gio nhà làm, ngon sạch, giá 120k/10 chiếc kèm hộp mật mía. Ship toàn Hà Nội, đặt hàng qua 0359940126. Bạn đã thử chưa?`,
+    hashtags: ["banhgio", "banhgiomatmia", "hanoi"],
   };
 }
 
