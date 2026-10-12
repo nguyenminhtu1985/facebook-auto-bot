@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import sharp from "sharp";
 import { findProvider } from "@/lib/db/providers";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { ImageSource, ImageSourcePref } from "@/lib/types";
@@ -41,7 +42,29 @@ async function pickLibraryImage(): Promise<{ url: string; source: ImageSource }>
     throw new Error("Photo library is empty — sync photos from your Page or upload some to the bucket first");
   }
   const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-  const { data: urlData } = db.storage.from(STORAGE_BUCKET).getPublicUrl(chosen);
+
+  // Random crop variation so reposts never look identical to the Page original.
+  const { data: fileData, error: dlError } = await db.storage.from(STORAGE_BUCKET).download(chosen);
+  if (dlError) throw new Error(`Photo download failed: ${dlError.message}`);
+  const input = Buffer.from(await fileData.arrayBuffer());
+  const meta = await sharp(input).metadata();
+  const w = meta.width ?? 1200;
+  const h = meta.height ?? 1200;
+  const cw = Math.max(1, Math.floor(w * (0.82 + Math.random() * 0.14)));
+  const ch = Math.max(1, Math.floor(h * (0.82 + Math.random() * 0.14)));
+  const left = Math.floor(Math.random() * Math.max(1, w - cw));
+  const top = Math.floor(Math.random() * Math.max(1, h - ch));
+  const variant = await sharp(input)
+    .extract({ left, top, width: cw, height: ch })
+    .jpeg({ quality: 88 })
+    .toBuffer();
+
+  const variantName = `variants/${Date.now()}-${Math.floor(Math.random() * 1e6)}.jpg`;
+  const { error: upError } = await db.storage
+    .from(STORAGE_BUCKET)
+    .upload(variantName, variant, { contentType: "image/jpeg", upsert: false });
+  if (upError) throw new Error(`Variant upload failed: ${upError.message}`);
+  const { data: urlData } = db.storage.from(STORAGE_BUCKET).getPublicUrl(variantName);
   return { url: urlData.publicUrl, source: "library" };
 }
 
