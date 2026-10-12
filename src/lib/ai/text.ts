@@ -20,6 +20,11 @@ high-performing Facebook photo post in strict JSON with this exact shape and not
 The three parts are joined into one caption, in that order, so they must read as
 one post rather than three fragments.
 
+Business context (applies to every post):
+- The Page sells "bánh gio" (also called bánh tro): a square, amber-translucent Vietnamese ash cake, eaten with "mật mía" (sugarcane molasses). It is NOT "bánh giầy", NOT "bánh chưng", NOT any other cake — never use those names.
+- Price: 120k VND for 10 cakes including a box of mật mía. Delivery across Hanoi. Order via phone/Zalo 0359940126.
+- Write in Vietnamese with correct diacritics. Always keep the product name exactly "bánh gio".
+
 Rules:
 - title: the opening hook, <= 80 characters. Conversational, scroll-stopping, specific. At most one emoji. No hashtags.
 - description: 2-4 short sentences, <= 400 characters, written to be read on a phone. Plain language, no marketing cliches. End with a question or a soft call to action that invites comments, since engagement drives Facebook reach.
