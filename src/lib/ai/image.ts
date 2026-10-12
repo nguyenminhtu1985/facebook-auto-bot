@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { findProvider } from "@/lib/db/providers";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { ImageSource, ImageSourcePref } from "@/lib/types";
-
+import { getSettings } from "@/lib/db/settings";
+import { GRAPH_BASE } from "@/lib/facebook/oauth";
 const STORAGE_BUCKET = "post-images";
 
 // Square reads well in the Facebook feed on both mobile and desktop, and
@@ -13,6 +14,79 @@ const HEIGHT = 1200;
 export function resolveImageSource(pref: ImageSourcePref): ImageSource {
   if (pref === "mixed") return Math.random() < 0.5 ? "ai" : "stock";
   return pref;
+}
+/** Folder in the post-images bucket holding the owner's own photos. */
+const LIBRARY_FOLDER = "library";
+
+/**
+ * Picks a random photo the owner uploaded to the `library/` folder of the
+ * post-images bucket (Supabase Dashboard → Storage), or synced from the
+ * Facebook Page with the "Sync photos from Page" button.
+ */
+async function pickLibraryImage(): Promise<{ url: string; source: ImageSource }> {
+  const db = supabaseAdmin();
+  const { data, error } = await db.storage.from(STORAGE_BUCKET).list(LIBRARY_FOLDER, { limit: 1000 });
+  if (error) throw new Error(`Photo library list failed: ${error.message}`);
+  const files = (data ?? []).filter((f) => /\.(jpe?g|png|webp|gif)$/i.test(f.name));
+  if (files.length === 0) {
+    throw new Error("Photo library is empty — sync photos from your Page or upload some to the library/ folder first");
+  }
+  const chosen = files[Math.floor(Math.random() * files.length)];
+  const { data: urlData } = db.storage.from(STORAGE_BUCKET).getPublicUrl(`${LIBRARY_FOLDER}/${chosen.name}`);
+  return { url: urlData.publicUrl, source: "library" };
+}
+
+/**
+ * Downloads the default Page's own photos via the Graph API and stores them
+ * in the `library/` folder, skipping ones already imported. Returns counts.
+ */
+export async function syncPhotosFromPage(): Promise<{ imported: number; skipped: number }> {
+  const settings = await getSettings();
+  const pageId = settings.default_page_id;
+  const token = settings.default_page_token;
+  if (!pageId || !token) throw new Error("Connect a Facebook Page first");
+
+  const db = supabaseAdmin();
+  const { data: existing } = await db.storage.from(STORAGE_BUCKET).list(LIBRARY_FOLDER, { limit: 1000 });
+  const seen = new Set((existing ?? []).map((f) => f.name));
+
+  let imported = 0;
+  let skipped = 0;
+  let url: string | null =
+    `${GRAPH_BASE}/${pageId}/photos?` +
+    new URLSearchParams({ fields: "images", limit: "50", access_token: token });
+  while (url && imported + skipped < 200) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    if (!res.ok) throw new Error(`Facebook photos API returned ${res.status}`);
+    const data = await res.json();
+    for (const photo of data.data ?? []) {
+      const images = [...(photo.images ?? [])].sort(
+        (a: { width: number }, b: { width: number }) => b.width - a.width
+      );
+      if (!images.length) continue;
+      const name = `${photo.id}.jpg`;
+      if (seen.has(name)) {
+        skipped++;
+        continue;
+      }
+      try {
+        const imgRes = await fetch(images[0].source, { signal: AbortSignal.timeout(30_000) });
+        if (!imgRes.ok) continue;
+        const bytes = new Uint8Array(await imgRes.arrayBuffer());
+        const { error } = await db.storage
+          .from(STORAGE_BUCKET)
+          .upload(`${LIBRARY_FOLDER}/${name}`, bytes, { contentType: "image/jpeg", upsert: false });
+        if (!error) {
+          imported++;
+          seen.add(name);
+        }
+      } catch {
+        // Skip one bad photo, keep going with the rest.
+      }
+    }
+    url = data.paging?.next ?? null;
+  }
+  return { imported, skipped };
 }
 
 /**
@@ -73,6 +147,10 @@ export async function generateImage(
   pref: ImageSourcePref
 ): Promise<{ url: string; source: ImageSource }> {
   const source = resolveImageSource(pref);
+// Owner's photo library: no generation, just pick a random uploaded photo.
+if (source === "library") {
+  return pickLibraryImage();
+}
 
   let blob: Blob;
   try {
