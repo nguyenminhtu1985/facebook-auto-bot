@@ -352,7 +352,6 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return safely(async () => {
     const denied = await guard(route, req, url);
-    const denied = await guard(route, req, url);
     if (denied) return denied;
     if (route === "library/sync") {
       return json(await syncPhotosFromPage());
