@@ -320,7 +320,7 @@ const CreatePostBody = z.object({
   description: z.string().min(1).max(500),
   hashtags: z.array(z.string()).max(15).default([]),
   imageUrl: z.string().url(),
-  imageSource: z.enum(["ai", "stock"]),
+  image_source: z.enum(["ai", "stock", "mixed", "library"]).optional(),
   linkUrl: z.string().url().optional().or(z.literal("")),
   pageId: z.string().min(1),
   pageName: z.string().min(1),
