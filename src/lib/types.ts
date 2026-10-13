@@ -1,4 +1,4 @@
-export type ImageSource = "ai" | "stock" | "library";
+export type ImageSource = "ai" | "stock" | "mixed" | "library";
 export type ImageSourcePref = "ai" | "stock" | "mixed" | "library";
 export type PostStatus = "draft" | "scheduled" | "posted" | "failed";
 
