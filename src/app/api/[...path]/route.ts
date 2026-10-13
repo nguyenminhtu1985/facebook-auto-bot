@@ -320,7 +320,7 @@ const CreatePostBody = z.object({
   description: z.string().min(1).max(500),
   hashtags: z.array(z.string()).max(15).default([]),
   imageUrl: z.string().url(),
-  image_source: z.enum(["ai", "stock", "mixed", "library"]).optional(),
+  imageSource: z.enum(["ai", "stock", "mixed", "library"]),
   linkUrl: z.string().url().optional().or(z.literal("")),
   pageId: z.string().min(1),
   pageName: z.string().min(1),
@@ -582,7 +582,7 @@ export async function POST(req: Request, ctx: Ctx) {
 /* ---------------------------------------------------------------- PATCH */
 
 const SettingsBody = z.object({
-  image_source: z.enum(["ai", "stock", "mixed"]).optional(),
+  image_source: z.enum(["ai", "stock", "mixed", "library"]).optional(),
   utm_suffix: z.string().max(200).optional(),
   auto_post_enabled: z.boolean().optional(),
   posts_per_day: z.number().int().min(1).max(20).optional(),
