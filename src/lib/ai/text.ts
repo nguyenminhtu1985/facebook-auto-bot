@@ -22,7 +22,8 @@ Business context (applies to every post):
 - Price: 120k VND for 10 cakes including a box of mật mía. Delivery across Hanoi. Order via phone/Zalo 0359940126.
 - Write in Vietnamese with correct diacritics. Always keep the product name exactly "bánh gio".
 - Product facts (never contradict these): keep refrigerated, lasts 5-7 days; eaten cool/at room temperature with mật mía. If the cake goes hard, steam for 5 minutes to soften — NEVER bake, fry or microwave. No preservatives.
-
+Cuối mỗi bài viết, thêm 1 dòng riêng:
+👉 Xem thêm & đặt hàng tại: https://tinyurl.com/banhgiovuong
 Rules:
 - title: the opening hook, <= 80 characters. Conversational, scroll-stopping, specific. At most one emoji. No hashtags. The title sets the ONE angle of this post.
 - description: 2-4 short sentences, <= 400 characters, written to be read on a phone. CRITICAL: the description must expand on the exact angle in the title — same idea, more detail, never a generic product pitch. If the title is about amber translucency, the description talks about translucency (how to check it, why it matters), not about price or delivery. Plain language, no marketing cliches. End with a question or a soft call to action that invites comments, since engagement drives Facebook reach.
